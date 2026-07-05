@@ -239,8 +239,8 @@ export type Database = {
           student_code: string
         }[]
       }
-      search_students_for_parent: {
-        Args: { search_query: string }
+      register_student_for_staff: {
+        Args: { p_class_name: string; p_full_name: string }
         Returns: {
           admission_no: string
           class_name: string
@@ -250,7 +250,23 @@ export type Database = {
           student_code: string
         }[]
       }
+      search_students_for_parent: {
+        Args: { search_query: string }
+        Returns: {
+          admission_no: string
+          class_name: string
+          full_name: string
+          has_parent_linked: boolean
+          id: string
+          slug: string
+          student_code: string
+        }[]
+      }
       slugify_student_name: { Args: { name_input: string }; Returns: string }
+      validate_student_class_name: {
+        Args: { p_class: string }
+        Returns: boolean
+      }
     }
     Enums: {
       entry_status: "pending" | "confirmed" | "rejected"

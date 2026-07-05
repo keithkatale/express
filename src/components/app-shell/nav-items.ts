@@ -4,6 +4,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  pendingBadge?: boolean;
 };
 
 export const parentNav: NavItem[] = [
@@ -14,8 +15,8 @@ export const parentNav: NavItem[] = [
 ];
 
 export const accountantNav: NavItem[] = [
-  { href: "/accountant/students", label: "Students", icon: Users },
-  { href: "/accountant/pending", label: "Pending", icon: Clock },
+  { href: "/accountant/students", label: "Students", icon: Users, pendingBadge: true },
+  { href: "/accountant/pending", label: "Pending", icon: Clock, pendingBadge: true },
   { href: "/accountant/activity", label: "Activity", icon: Activity },
   { href: "/accountant/settings", label: "Settings", icon: Settings },
 ];

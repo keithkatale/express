@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -10,9 +11,6 @@ export default function SecretarySettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [fullName, setFullName] = useState("");
-  const [className, setClassName] = useState("");
-  const [admissionNo, setAdmissionNo] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [studentId, setStudentId] = useState("");
   const [students, setStudents] = useState<{ id: string; full_name: string }[]>([]);
@@ -49,30 +47,6 @@ export default function SecretarySettingsPage() {
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
-  }
-
-  async function addStudent(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-
-    const res = await fetch("/api/admin/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, className, admissionNo }),
-    });
-
-    const body = await res.json();
-    if (!res.ok) {
-      setError(body.error ?? "Failed to add student");
-      return;
-    }
-
-    setMessage(`Added ${body.student.full_name}`);
-    setFullName("");
-    setClassName("");
-    setAdmissionNo("");
-    if (body.student?.id) setStudentId(body.student.id);
   }
 
   async function linkParent(e: React.FormEvent) {
@@ -133,33 +107,15 @@ export default function SecretarySettingsPage() {
 
       {isStaff ? (
         <>
-          <form onSubmit={addStudent} className="card space-y-4 p-4">
-            <h2 className="section-title">Add student</h2>
-            <input
-              className="input-ios"
-              placeholder="Full name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-            />
-            <input
-              className="input-ios"
-              placeholder="Class"
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              required
-            />
-            <input
-              className="input-ios"
-              placeholder="Admission number"
-              value={admissionNo}
-              onChange={(e) => setAdmissionNo(e.target.value)}
-              required
-            />
-            <button type="submit" className="btn-primary w-full">
-              Add student
-            </button>
-          </form>
+          <div className="card space-y-3 p-4">
+            <h2 className="section-title">Student profiles</h2>
+            <p className="text-sm text-[var(--app-text-secondary)]">
+              Create profiles without a parent. Parents link them during signup.
+            </p>
+            <Link href="/accountant/students/new" className="btn-primary block w-full text-center">
+              Add student profile
+            </Link>
+          </div>
 
           <form onSubmit={linkParent} className="card space-y-4 p-4">
             <h2 className="section-title">Link parent to student</h2>

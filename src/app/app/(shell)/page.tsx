@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { PageStack } from "@/components/layout/page-container";
-import { EmptyState, StudentCard } from "@/components/ui/money-ui";
+import { EmptyState } from "@/components/ui/money-ui";
 import { getParentStudents, getProfile } from "@/lib/ledger/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ParentHomeClient } from "./parent-home-client";
+import { ParentHomeHeader } from "./parent-home-header";
 
 export default async function ParentHomePage() {
   const supabase = await createSupabaseServerClient();
@@ -18,6 +19,8 @@ export default async function ParentHomePage() {
 
   return (
     <PageStack>
+      <ParentHomeHeader />
+
       <div>
         <p className="text-xs text-[var(--app-text-muted)] md:text-sm">Good day</p>
         <h1 className="page-title">{profile.full_name}</h1>

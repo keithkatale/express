@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { AppLogo } from "@/components/branding/app-logo";
 import { AuthPage } from "@/components/layout/page-container";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -63,7 +64,10 @@ export default function LoginForm() {
 
   return (
     <AuthPage>
-      <h1 className="page-title">Welcome back</h1>
+      <div className="flex justify-center">
+        <AppLogo size={64} priority />
+      </div>
+      <h1 className="page-title mt-4">Welcome back</h1>
       <p className="page-subtitle mt-2">Sign in to Benchmark Express</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">

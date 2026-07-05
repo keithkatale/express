@@ -3,16 +3,109 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { BalanceHero, EmptyState } from "@/components/ui/money-ui";
+import { MoneyAmountField } from "@/components/ui/money-numpad";
+import { SuccessScreen } from "@/components/ui/success-screen";
 import { PageStack } from "@/components/layout/page-container";
 import { formatUgx, parseUgxInput } from "@/lib/format-money";
+import { formatStudentMeta } from "@/lib/student-meta";
+import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { StudentSummary } from "@/types/database";
+
+type Step = "student" | "amount" | "note" | "review" | "confirm";
+type StepDirection = "forward" | "back";
+
+const STEP_ORDER: Step[] = ["student", "amount", "note", "review", "confirm"];
+
+const STEP_META: Record<Step, { title: string; subtitle?: string }> = {
+  student: {
+    title: "Who are you sending to?",
+    subtitle: "Choose the student receiving this deposit",
+  },
+  amount: {
+    title: "How much?",
+  },
+  note: {
+    title: "Add a note",
+    subtitle: "Optional — e.g. weekly allowance or term fees",
+  },
+  review: {
+    title: "Review",
+    subtitle: "Check where your money is going",
+  },
+  confirm: {
+    title: "Confirm & send",
+    subtitle: "Last step — send this deposit to the bursar",
+  },
+};
+
+function StepProgress({ step }: { step: Step }) {
+  const index = STEP_ORDER.indexOf(step);
+
+  return (
+    <div className="send-step-progress" aria-label={`Step ${index + 1} of ${STEP_ORDER.length}`}>
+      {STEP_ORDER.map((s, i) => (
+        <span
+          key={s}
+          className={
+            i < index ? "send-step-dot send-step-dot--done" : i === index ? "send-step-dot send-step-dot--active" : "send-step-dot"
+          }
+        />
+      ))}
+      <span className="send-step-label">
+        Step {index + 1} of {STEP_ORDER.length}
+      </span>
+    </div>
+  );
+}
+
+function StepShell({
+  step,
+  direction,
+  title,
+  subtitle,
+  onBack,
+  children,
+}: {
+  step: Step;
+  direction: StepDirection;
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageStack className="send-flow content-compact">
+      <StepProgress step={step} />
+      {onBack ? (
+        <button type="button" className="text-sm text-[var(--app-text-muted)]" onClick={onBack}>
+          ← Back
+        </button>
+      ) : null}
+      <div>
+        <h1 className="page-title">{title}</h1>
+        {subtitle ? <p className="page-subtitle mt-1">{subtitle}</p> : null}
+      </div>
+      <div
+        key={step}
+        className={cn(
+          "send-step-animate",
+          direction === "back" && "send-step-animate--back"
+        )}
+      >
+        {children}
+      </div>
+    </PageStack>
+  );
+}
 
 export default function SendMoneyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselected = searchParams.get("student");
 
+  const [step, setStep] = useState<Step>("student");
+  const [direction, setDirection] = useState<StepDirection>("forward");
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [studentId, setStudentId] = useState(preselected ?? "");
   const [amountInput, setAmountInput] = useState("");
@@ -61,10 +154,23 @@ export default function SendMoneyForm() {
   const selected = students.find((s) => s.id === studentId);
   const amount = parseUgxInput(amountInput);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!studentId || !amount) {
-      setError("Select a student and enter a valid amount.");
+  function goBack() {
+    setError(null);
+    setDirection("back");
+    const index = STEP_ORDER.indexOf(step);
+    if (index > 0) setStep(STEP_ORDER[index - 1]);
+  }
+
+  function goNext() {
+    setError(null);
+    setDirection("forward");
+    const index = STEP_ORDER.indexOf(step);
+    if (index < STEP_ORDER.length - 1) setStep(STEP_ORDER[index + 1]);
+  }
+
+  async function handleSend() {
+    if (!studentId || !amount || !selected) {
+      setError("Missing student or amount.");
       return;
     }
 
@@ -87,7 +193,7 @@ export default function SendMoneyForm() {
       entry_type: "deposit",
       amount,
       status: "pending",
-      note: note || null,
+      note: note.trim() || null,
       created_by: user.id,
     });
 
@@ -97,90 +203,253 @@ export default function SendMoneyForm() {
       return;
     }
 
+    setDirection("forward");
     setSuccess(true);
     setLoading(false);
   }
 
   if (success && selected && amount) {
     return (
-      <PageStack>
-        <BalanceHero
-          label="Deposit sent"
-          amount={amount}
-          subtitle={`For ${selected.full_name} — awaiting bursar confirmation`}
+      <PageStack className="content-compact send-flow">
+        <SuccessScreen
+          title="Deposit sent!"
+          subtitle={`${selected.full_name} — awaiting bursar confirmation`}
+          detail={formatUgx(amount)}
+          primaryAction={
+            <button type="button" className="btn-primary w-full" onClick={() => router.push("/app")}>
+              Back to home
+            </button>
+          }
+          secondaryAction={
+            <button type="button" className="btn-secondary w-full" onClick={() => router.push("/app/activity")}>
+              View activity
+            </button>
+          }
         />
-        <p className="text-center text-sm text-[var(--app-text-secondary)]">
-          The school secretary will confirm your deposit. Your balance updates once confirmed.
-        </p>
-        <button type="button" className="btn-primary w-full" onClick={() => router.push("/app")}>
-          Back to home
-        </button>
       </PageStack>
     );
   }
 
   if (!students.length) {
     return (
-      <EmptyState
-        title="No students linked"
-        description="Ask the school to link your children before sending money."
-      />
+      <div className="content-compact">
+        <EmptyState
+          title="No students linked"
+          description="Ask the school to link your children before sending money."
+        />
+      </div>
     );
   }
 
+  const meta = STEP_META[step];
+  const subtitle =
+    step === "amount" && selected ? `Sending to ${selected.full_name}` : meta.subtitle;
+
+  function renderStep() {
+    switch (step) {
+      case "student":
+        return (
+          <>
+            <div className="space-y-2">
+              {students.map((student) => {
+                const active = student.id === studentId;
+                return (
+                  <button
+                    key={student.id}
+                    type="button"
+                    className={`card w-full p-4 text-left transition-all duration-200 active:scale-[0.98] ${
+                      active ? "ring-2 ring-[var(--lumina-primary)]" : ""
+                    }`}
+                    onClick={() => setStudentId(student.id)}
+                  >
+                    <p className="font-semibold">{student.full_name}</p>
+                    <p className="text-sm text-[var(--app-text-muted)]">
+                      {formatStudentMeta({
+                        className: student.class_name,
+                        studentCode: student.student_code,
+                        slug: student.slug,
+                        admissionNo: student.admission_no,
+                      })}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--app-text-secondary)]">
+                      Balance: {formatUgx(student.balance)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+            {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
+            <button
+              type="button"
+              className="btn-primary w-full"
+              disabled={!studentId}
+              onClick={() => {
+                if (!studentId) {
+                  setError("Select a student to continue.");
+                  return;
+                }
+                goNext();
+              }}
+            >
+              Continue
+            </button>
+          </>
+        );
+
+      case "amount":
+        return (
+          <>
+            <MoneyAmountField
+              label="Amount (UGX)"
+              placeholder="Tap amount below"
+              value={amountInput}
+              onChange={setAmountInput}
+            />
+            {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => {
+                if (!amount) {
+                  setError("Enter a valid amount to continue.");
+                  return;
+                }
+                goNext();
+              }}
+            >
+              Continue
+            </button>
+          </>
+        );
+
+      case "note":
+        return (
+          <>
+            <div>
+              <label htmlFor="send-note" className="mb-2 block text-sm font-medium">
+                Note (optional)
+              </label>
+              <input
+                id="send-note"
+                className="input-ios"
+                placeholder="e.g. Weekly allowance"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-3">
+              <button type="button" className="btn-primary w-full" onClick={goNext}>
+                Continue
+              </button>
+              <button type="button" className="btn-secondary w-full" onClick={goNext}>
+                Skip
+              </button>
+            </div>
+          </>
+        );
+
+      case "review":
+        if (!selected || !amount) return null;
+        return (
+          <>
+            <div className="card space-y-4 p-4 md:p-5">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Recipient</p>
+                <p className="font-display text-xl font-semibold">{selected.full_name}</p>
+                <p className="text-sm text-[var(--app-text-muted)]">
+                  {formatStudentMeta({
+                    className: selected.class_name,
+                    studentCode: selected.student_code,
+                    slug: selected.slug,
+                    admissionNo: selected.admission_no,
+                  })}
+                </p>
+              </div>
+              <div className="border-t border-[var(--app-divider)] pt-4">
+                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Amount</p>
+                <p className="font-display text-2xl font-semibold">{formatUgx(amount)}</p>
+              </div>
+              {note.trim() ? (
+                <div className="border-t border-[var(--app-divider)] pt-4">
+                  <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Note</p>
+                  <p className="text-sm">{note.trim()}</p>
+                </div>
+              ) : null}
+              <div className="border-t border-[var(--app-divider)] pt-4">
+                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Destination</p>
+                <p className="text-sm text-[var(--app-text-secondary)]">
+                  Funds are sent to the school bursar for confirmation. Once approved, the balance on{" "}
+                  {selected.full_name}&apos;s account will update.
+                </p>
+              </div>
+            </div>
+            <button type="button" className="btn-primary w-full" onClick={goNext}>
+              Continue to confirm
+            </button>
+          </>
+        );
+
+      case "confirm":
+        if (!selected || !amount) return null;
+        return (
+          <>
+            <BalanceHero
+              label="You are sending"
+              amount={amount}
+              subtitle={`To ${selected.full_name}`}
+            />
+            <div className="card space-y-2 p-4 text-sm text-[var(--app-text-secondary)]">
+              <div className="flex justify-between gap-3">
+                <span>Student</span>
+                <span className="text-right font-medium text-[var(--app-text-primary)]">
+                  {selected.full_name}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>Class</span>
+                <span className="text-right font-medium text-[var(--app-text-primary)]">
+                  {selected.class_name}
+                </span>
+              </div>
+              {note.trim() ? (
+                <div className="flex justify-between gap-3">
+                  <span>Note</span>
+                  <span className="text-right font-medium text-[var(--app-text-primary)]">
+                    {note.trim()}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-3">
+                <span>Status after send</span>
+                <span className="text-right font-medium text-[var(--app-text-primary)]">
+                  Pending bursar approval
+                </span>
+              </div>
+            </div>
+            {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
+            <button
+              type="button"
+              className="btn-primary w-full"
+              disabled={loading}
+              onClick={() => void handleSend()}
+            >
+              {loading ? "Sending..." : "Confirm & send to bursar"}
+            </button>
+          </>
+        );
+    }
+  }
+
   return (
-    <PageStack>
-      <div>
-        <h1 className="page-title">Send money</h1>
-        <p className="page-subtitle mt-1">Funds go to the bursar for confirmation</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-2 block text-sm font-medium">Student</label>
-          <select
-            className="input-ios"
-            value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
-            required
-          >
-            <option value="">Select student</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.full_name} — {s.class_name} ({formatUgx(s.balance)})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">Amount (UGX)</label>
-          <input
-            className="input-ios"
-            inputMode="numeric"
-            placeholder="e.g. 50000"
-            value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">Note (optional)</label>
-          <input
-            className="input-ios"
-            placeholder="e.g. Weekly allowance"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </div>
-
-        {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
-
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? "Sending..." : "Send to bursar"}
-        </button>
-      </form>
-    </PageStack>
+    <StepShell
+      step={step}
+      direction={direction}
+      title={meta.title}
+      subtitle={subtitle}
+      onBack={step === "student" ? undefined : goBack}
+    >
+      {renderStep()}
+    </StepShell>
   );
 }

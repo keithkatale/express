@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { formatUgx } from "@/lib/format-money";
 import { formatStudentMeta } from "@/lib/student-meta";
+import { NavBadge } from "@/components/ui/nav-badge";
 import type { EntryStatus, EntryType } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
@@ -86,6 +88,7 @@ export function StudentCard({
   studentCode,
   slug,
   admissionNo,
+  pendingCount,
 }: {
   name: string;
   className: string;
@@ -95,29 +98,35 @@ export function StudentCard({
   studentCode?: string | null;
   slug?: string | null;
   admissionNo?: string | null;
+  pendingCount?: number;
 }) {
-  const content = (
-    <div className="card flex items-center justify-between gap-3 p-3 md:gap-4 md:p-4">
-      <div className="min-w-0">
+  const details = (
+    <>
+      <div className="flex items-center gap-2">
         <p className="truncate font-semibold">{name}</p>
-        <p className="text-xs text-[var(--app-text-muted)] md:text-sm">
-          {formatStudentMeta({ className, studentCode, slug, admissionNo })}
-        </p>
-        <p className="mt-1.5 font-display text-lg md:mt-2 md:text-xl">{formatUgx(balance)}</p>
+        {pendingCount && pendingCount > 0 ? (
+          <NavBadge count={pendingCount} pulse />
+        ) : null}
       </div>
+      <p className="text-xs text-[var(--app-text-muted)] md:text-sm">
+        {formatStudentMeta({ className, studentCode, slug, admissionNo })}
+      </p>
+      <p className="mt-1.5 font-display text-lg md:mt-2 md:text-xl">{formatUgx(balance)}</p>
+    </>
+  );
+
+  return (
+    <div className="card flex items-center justify-between gap-3 p-3 md:gap-4 md:p-4">
+      {href ? (
+        <Link href={href} className="min-w-0 flex-1 transition-transform active:scale-[0.98]">
+          {details}
+        </Link>
+      ) : (
+        <div className="min-w-0 flex-1">{details}</div>
+      )}
       {action}
     </div>
   );
-
-  if (href) {
-    return (
-      <a href={href} className="block transition-transform active:scale-[0.98]">
-        {content}
-      </a>
-    );
-  }
-
-  return content;
 }
 
 export function EmptyState({ title, description }: { title: string; description: string }) {

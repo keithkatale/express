@@ -23,3 +23,13 @@ export function PageStack({
 }) {
   return <div className={cn("page-stack", className)}>{children}</div>;
 }
+
+export function CompactPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={cn("content-compact", className)}>{children}</div>;
+}

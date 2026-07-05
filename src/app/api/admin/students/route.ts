@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isValidClassName } from "@/lib/school-classes";
 
 async function requireStaff() {
   const supabase = await createSupabaseServerClient();
@@ -32,10 +33,13 @@ export async function POST(request: Request) {
   const body = await request.json();
   const fullName = String(body.fullName ?? "").trim();
   const className = String(body.className ?? "").trim();
-  const admissionNo = String(body.admissionNo ?? "").trim();
 
-  if (!fullName || !className || !admissionNo) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  if (!fullName || !className) {
+    return NextResponse.json({ error: "Name and class are required" }, { status: 400 });
+  }
+
+  if (!isValidClassName(className)) {
+    return NextResponse.json({ error: "Select a valid senior class and stream" }, { status: 400 });
   }
 
   const admin = createSupabaseAdminClient();
@@ -57,7 +61,7 @@ export async function POST(request: Request) {
     .insert({
       full_name: fullName,
       class_name: className,
-      admission_no: admissionNo,
+      admission_no: studentCode,
       student_code: studentCode,
       slug,
     })

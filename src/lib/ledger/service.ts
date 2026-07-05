@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isValidClassName } from "@/lib/school-classes";
 import type {
   LedgerEntry,
   LedgerEntryWithStudent,
@@ -204,8 +205,12 @@ export async function recordWithdrawal(
 
 export async function createStudent(
   supabase: SupabaseClient,
-  input: { fullName: string; className: string; admissionNo: string }
+  input: { fullName: string; className: string; admissionNo?: string }
 ) {
+  if (!isValidClassName(input.className)) {
+    throw new Error("Select a valid senior class and stream");
+  }
+
   const [{ data: studentCode, error: codeError }, { data: slug, error: slugError }] =
     await Promise.all([
       supabase.rpc("generate_unique_student_code"),
@@ -221,7 +226,7 @@ export async function createStudent(
     .insert({
       full_name: input.fullName,
       class_name: input.className,
-      admission_no: input.admissionNo,
+      admission_no: input.admissionNo ?? studentCode,
       student_code: studentCode,
       slug,
     })

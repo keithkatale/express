@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ClassStreamPicker } from "@/components/students/class-stream-picker";
 import { formatStudentMeta } from "@/lib/student-meta";
+import {
+  classNameFromSelection,
+  type SeniorLevel,
+} from "@/lib/school-classes";
 import { rankStudentMatches, type StudentSearchResult } from "@/lib/search-students";
 
 type Step = "has-student" | "search" | "confirm" | "add" | "created";
@@ -18,7 +23,8 @@ export function StudentLinkFlow({
   const [registeredAtSchool, setRegisteredAtSchool] = useState<boolean | null>(null);
   const [query, setQuery] = useState("");
   const [addName, setAddName] = useState("");
-  const [addClass, setAddClass] = useState("");
+  const [addLevel, setAddLevel] = useState<SeniorLevel | null>(null);
+  const [addStream, setAddStream] = useState<string | null>(null);
   const [results, setResults] = useState<StudentSearchResult[]>([]);
   const [selected, setSelected] = useState<StudentSearchResult | null>(null);
   const [created, setCreated] = useState<StudentSearchResult | null>(null);
@@ -60,7 +66,8 @@ export function StudentLinkFlow({
     setStep("search");
     setQuery("");
     setAddName("");
-    setAddClass("");
+    setAddLevel(null);
+    setAddStream(null);
     setSelected(null);
     setCreated(null);
     setResults([]);
@@ -73,7 +80,8 @@ export function StudentLinkFlow({
 
   function startAdd(name?: string) {
     setAddName(name ?? query.trim());
-    setAddClass("");
+    setAddLevel(null);
+    setAddStream(null);
     setError(null);
     setStep("add");
   }
@@ -120,13 +128,19 @@ export function StudentLinkFlow({
       return;
     }
 
+    const className = classNameFromSelection(addLevel, addStream);
+    if (!className) {
+      setError("Select your child's senior class and stream.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     const supabase = createSupabaseBrowserClient();
     const { data, error: rpcError } = await supabase.rpc("register_student_for_parent", {
       p_full_name: name,
-      p_class_name: addClass.trim() || "Unassigned",
+      p_class_name: className,
     });
 
     if (rpcError) {
@@ -153,16 +167,16 @@ export function StudentLinkFlow({
         <div>
           <h1 className="page-title">Link your child</h1>
           <p className="page-subtitle mt-2">
-            Is your child already registered with the school bursar?
+            Search for a profile the bursar created, or add your child with their class.
           </p>
         </div>
 
         <div className="space-y-3">
           <button type="button" className="btn-primary w-full" onClick={() => startSearch(true)}>
-            Yes, they are registered
+            Find existing school profile
           </button>
           <button type="button" className="btn-secondary w-full" onClick={() => startSearch(false)}>
-            No, or I&apos;m not sure
+            Search or create profile
           </button>
         </div>
 
@@ -221,9 +235,9 @@ export function StudentLinkFlow({
           >
             ← Back to search
           </button>
-          <h1 className="page-title mt-3">Add to list</h1>
+          <h1 className="page-title mt-3">Add student profile</h1>
           <p className="page-subtitle mt-2">
-            We&apos;ll create a student profile and give them a six-digit ID.
+            We&apos;ll create their profile, assign a class, and link it to your account.
           </p>
         </div>
 
@@ -238,15 +252,15 @@ export function StudentLinkFlow({
               autoFocus
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs text-[var(--app-text-muted)]">Class (optional)</label>
-            <input
-              className="input-ios"
-              placeholder="e.g. S.3 Blue"
-              value={addClass}
-              onChange={(e) => setAddClass(e.target.value)}
-            />
-          </div>
+          <ClassStreamPicker
+            level={addLevel}
+            stream={addStream}
+            onLevelChange={(next) => {
+              setAddLevel(next);
+              setAddStream(null);
+            }}
+            onStreamChange={setAddStream}
+          />
         </div>
 
         {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
@@ -278,6 +292,15 @@ export function StudentLinkFlow({
               admissionNo: selected.admission_no,
             })}
           </p>
+          {selected.has_parent_linked ? (
+            <p className="mt-2 text-xs text-[var(--app-text-secondary)]">
+              This profile already has a parent linked. You can still add yourself as an additional guardian.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-[var(--lumina-success)]">
+              School profile — no parent linked yet.
+            </p>
+          )}
         </div>
 
         {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
@@ -353,6 +376,9 @@ export function StudentLinkFlow({
                 admissionNo: student.admission_no,
               })}
             </p>
+            {!student.has_parent_linked ? (
+              <p className="mt-1 text-xs font-medium text-[var(--lumina-success)]">Awaiting parent link</p>
+            ) : null}
           </button>
         ))}
       </div>

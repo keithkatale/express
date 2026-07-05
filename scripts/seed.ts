@@ -54,9 +54,9 @@ async function main() {
   void secretaryId;
 
   const students = [
-    { full_name: "Joel Nakato", class_name: "S.3 Blue", admission_no: "ADM-2024-001" },
-    { full_name: "Amina Okello", class_name: "S.2 Green", admission_no: "ADM-2024-002" },
-    { full_name: "Brian Mugisha", class_name: "S.4 Red", admission_no: "ADM-2024-003" },
+    { full_name: "Joel Nakato", class_name: "S.3 North", admission_no: "ADM-2024-001" },
+    { full_name: "Amina Okello", class_name: "S.2 East", admission_no: "ADM-2024-002" },
+    { full_name: "Brian Mugisha", class_name: "S.5 Sciences", admission_no: "ADM-2024-003" },
   ];
 
   const studentRows = [];

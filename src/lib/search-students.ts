@@ -5,6 +5,7 @@ export type StudentSearchResult = {
   admission_no: string;
   slug: string;
   student_code: string;
+  has_parent_linked: boolean;
 };
 
 function normalize(value: string): string {

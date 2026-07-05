@@ -39,7 +39,7 @@ export function ParentHomeClient({ initialStudents }: { initialStudents: Student
   useLedgerRealtime(refresh);
 
   return (
-    <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+    <div className="grid gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-3 xl:grid-cols-4">
       {students.map((student) => (
         <StudentCard
           key={student.id}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AppLogo } from "@/components/branding/app-logo";
 import { AuthPage } from "@/components/layout/page-container";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/types/database";
@@ -76,7 +77,10 @@ export default function AccountantLoginPage() {
 
   return (
     <AuthPage>
-      <p className="text-xs font-semibold uppercase tracking-widest text-[var(--app-text-muted)]">
+      <div className="flex justify-center">
+        <AppLogo size={64} priority />
+      </div>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-[var(--app-text-muted)]">
         School bursar
       </p>
       <h1 className="page-title mt-2">Accountant sign in</h1>

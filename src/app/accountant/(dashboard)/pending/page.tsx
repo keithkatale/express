@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { EmptyState, TransactionRow } from "@/components/ui/money-ui";
+import { EmptyState } from "@/components/ui/money-ui";
+import { SuccessScreen } from "@/components/ui/success-screen";
 import { PageStack } from "@/components/layout/page-container";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { formatUgx } from "@/lib/format-money";
@@ -13,6 +14,10 @@ export default function SecretaryPendingPage() {
   const [entries, setEntries] = useState<LedgerEntryWithStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<{
+    type: "confirm" | "reject";
+    entry: LedgerEntryWithStudent;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
@@ -34,6 +39,9 @@ export default function SecretaryPendingPage() {
   useLedgerRealtime(refresh);
 
   async function handleAction(entryId: string, action: "confirm" | "reject") {
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) return;
+
     setActionId(entryId);
     const supabase = createSupabaseBrowserClient();
     const {
@@ -51,7 +59,33 @@ export default function SecretaryPendingPage() {
       .eq("status", "pending");
 
     setActionId(null);
+    setActionSuccess({ type: action, entry });
     void refresh();
+  }
+
+  if (actionSuccess) {
+    const { type, entry } = actionSuccess;
+    const confirmed = type === "confirm";
+
+    return (
+      <PageStack className="content-compact">
+        <SuccessScreen
+          title={confirmed ? "Deposit approved" : "Deposit rejected"}
+          subtitle={
+            confirmed
+              ? `${formatUgx(entry.amount)} credited to ${entry.student.full_name}.`
+              : `${entry.student.full_name}'s deposit was not credited.`
+          }
+          detail={formatUgx(entry.amount)}
+          variant={confirmed ? "success" : "rejected"}
+          primaryAction={
+            <button type="button" className="btn-primary w-full" onClick={() => setActionSuccess(null)}>
+              Back to queue
+            </button>
+          }
+        />
+      </PageStack>
+    );
   }
 
   return (
@@ -68,7 +102,7 @@ export default function SecretaryPendingPage() {
       ) : entries.length === 0 ? (
         <EmptyState title="All caught up" description="No pending deposits to review." />
       ) : (
-        <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+        <div className="grid gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-3 xl:grid-cols-4">
           {entries.map((entry) => (
             <div key={entry.id} className="card p-3 md:p-4">
               <div className="flex items-start justify-between gap-3">

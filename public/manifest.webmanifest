@@ -1,0 +1,10 @@
+{
+  "name": "Benchmark Express",
+  "short_name": "Benchmark",
+  "description": "Boarding school money management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait"
+}

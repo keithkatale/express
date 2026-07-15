@@ -29,6 +29,20 @@ export type ParentStudent = {
   created_at: string;
 };
 
+export type ParentInvite = {
+  id: string;
+  token: string;
+  student_id: string;
+  email: string | null;
+  phone: string | null;
+  parent_name: string | null;
+  created_by: string;
+  expires_at: string;
+  consumed_at: string | null;
+  consumed_by: string | null;
+  created_at: string;
+};
+
 export type LedgerEntry = {
   id: string;
   student_id: string;

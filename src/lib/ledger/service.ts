@@ -159,6 +159,33 @@ export async function confirmDeposit(
   return data as LedgerEntry;
 }
 
+/**
+ * Marks pending deposits as confirmed once staff has seen them
+ * (pending page or student profile). Safe to call repeatedly.
+ */
+export async function acknowledgePendingDeposits(
+  supabase: SupabaseClient,
+  confirmedBy: string,
+  options?: { entryIds?: string[]; studentId?: string }
+) {
+  let query = supabase
+    .from("ledger_entries")
+    .update({ status: "confirmed", confirmed_by: confirmedBy })
+    .eq("entry_type", "deposit")
+    .eq("status", "pending");
+
+  if (options?.entryIds?.length) {
+    query = query.in("id", options.entryIds);
+  }
+  if (options?.studentId) {
+    query = query.eq("student_id", options.studentId);
+  }
+
+  const { data, error } = await query.select("id, amount, student_id");
+  if (error) throw error;
+  return (data ?? []) as Pick<LedgerEntry, "id" | "amount" | "student_id">[];
+}
+
 export async function rejectDeposit(
   supabase: SupabaseClient,
   entryId: string,

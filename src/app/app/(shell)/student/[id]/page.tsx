@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { BalanceHero, EmptyState, TransactionRow } from "@/components/ui/money-ui";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { formatStudentMeta } from "@/lib/student-meta";
-import { formatUgx } from "@/lib/format-money";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { LedgerEntry, StudentSummary } from "@/types/database";
 import { format } from "date-fns";
@@ -46,24 +45,22 @@ export default function StudentDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="content-profile space-y-6">
       <Link href="/app" className="text-sm text-[var(--app-text-muted)]">
         ← Back
       </Link>
 
-      <div>
-        <h1 className="font-display text-3xl font-semibold">{student.full_name}</h1>
-        <p className="text-sm text-[var(--app-text-muted)]">
-          {formatStudentMeta({
-            className: student.class_name,
-            studentCode: student.student_code,
-            slug: student.slug,
-            admissionNo: student.admission_no,
-          })}
-        </p>
-      </div>
-
-      <BalanceHero label="Available balance" amount={student.balance} />
+      <BalanceHero
+        label="Available balance"
+        amount={student.balance}
+        name={student.full_name}
+        meta={formatStudentMeta({
+          className: student.class_name,
+          studentCode: student.student_code,
+          slug: student.slug,
+          admissionNo: student.admission_no,
+        })}
+      />
 
       <Link href={`/app/send?student=${student.id}`} className="btn-primary block w-full text-center">
         Send money

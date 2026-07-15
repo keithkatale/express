@@ -45,10 +45,9 @@ export function SecretaryStudentsClient({
       {pending.total > 0 ? (
         <Link href="/accountant/pending" className="pending-alert">
           <span>
-            <strong>{pending.total}</strong> deposit{pending.total === 1 ? "" : "s"} awaiting
-            approval
+            <strong>{pending.total}</strong> new deposit{pending.total === 1 ? "" : "s"} to review
           </span>
-          <span className="text-sm font-semibold">Review →</span>
+          <span className="text-sm font-semibold">Open →</span>
         </Link>
       ) : null}
 

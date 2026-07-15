@@ -33,6 +33,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isInviteRoute = pathname.startsWith("/invite/");
   const isParentAuthRoute = pathname === "/login" || pathname === "/signup";
   const isAccountantSignup = pathname === "/accountant/signup";
   const isAccountantLogin = pathname === "/accountant";
@@ -42,6 +43,10 @@ export async function updateSession(request: NextRequest) {
   const isParentApp = pathname.startsWith("/app");
   const isOnboard = pathname === "/app/onboard";
   const isLegacySecretary = pathname.startsWith("/secretary");
+
+  if (isInviteRoute) {
+    return supabaseResponse;
+  }
 
   if (isLegacySecretary) {
     const url = request.nextUrl.clone();

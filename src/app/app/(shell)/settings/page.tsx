@@ -34,7 +34,7 @@ export default function ParentSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="content-profile space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold">Settings</h1>
       </div>

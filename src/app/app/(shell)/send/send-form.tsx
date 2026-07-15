@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BalanceHero, EmptyState } from "@/components/ui/money-ui";
 import { MoneyAmountField } from "@/components/ui/money-numpad";
 import { SuccessScreen } from "@/components/ui/success-screen";
+import { LoadingButtonLabel } from "@/components/ui/loading-button";
 import { PageStack } from "@/components/layout/page-container";
 import { formatUgx, parseUgxInput } from "@/lib/format-money";
 import { formatStudentMeta } from "@/lib/student-meta";
@@ -35,7 +36,7 @@ const STEP_META: Record<Step, { title: string; subtitle?: string }> = {
   },
   confirm: {
     title: "Confirm & send",
-    subtitle: "Last step — send this deposit to the bursar",
+    subtitle: "Last step — notify the school of this deposit",
   },
 };
 
@@ -89,7 +90,7 @@ function StepShell({
       <div
         key={step}
         className={cn(
-          "send-step-animate",
+          "send-step-animate space-y-6",
           direction === "back" && "send-step-animate--back"
         )}
       >
@@ -213,7 +214,7 @@ export default function SendMoneyForm() {
       <PageStack className="content-compact send-flow">
         <SuccessScreen
           title="Deposit sent!"
-          subtitle={`${selected.full_name} — awaiting bursar confirmation`}
+          subtitle={`${selected.full_name} — the school has been notified`}
           detail={formatUgx(amount)}
           primaryAction={
             <button type="button" className="btn-primary w-full" onClick={() => router.push("/app")}>
@@ -379,8 +380,8 @@ export default function SendMoneyForm() {
               <div className="border-t border-[var(--app-divider)] pt-4">
                 <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Destination</p>
                 <p className="text-sm text-[var(--app-text-secondary)]">
-                  Funds are sent to the school bursar for confirmation. Once approved, the balance on{" "}
-                  {selected.full_name}&apos;s account will update.
+                  Funds go to the school. Once the bursar sees this deposit,{" "}
+                  {selected.full_name}&apos;s balance will update.
                 </p>
               </div>
             </div>
@@ -397,7 +398,8 @@ export default function SendMoneyForm() {
             <BalanceHero
               label="You are sending"
               amount={amount}
-              subtitle={`To ${selected.full_name}`}
+              name={selected.full_name}
+              meta={selected.class_name}
             />
             <div className="card space-y-2 p-4 text-sm text-[var(--app-text-secondary)]">
               <div className="flex justify-between gap-3">
@@ -423,7 +425,7 @@ export default function SendMoneyForm() {
               <div className="flex justify-between gap-3">
                 <span>Status after send</span>
                 <span className="text-right font-medium text-[var(--app-text-primary)]">
-                  Pending bursar approval
+                  School notified
                 </span>
               </div>
             </div>
@@ -432,9 +434,12 @@ export default function SendMoneyForm() {
               type="button"
               className="btn-primary w-full"
               disabled={loading}
+              aria-busy={loading}
               onClick={() => void handleSend()}
             >
-              {loading ? "Sending..." : "Confirm & send to bursar"}
+              <LoadingButtonLabel loading={loading} loadingLabel="Sending">
+                Confirm & send
+              </LoadingButtonLabel>
             </button>
           </>
         );

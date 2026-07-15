@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthPage } from "@/components/layout/page-container";
+import { LoadingButtonLabel } from "@/components/ui/loading-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function AccountantSignupPage() {
@@ -94,8 +95,10 @@ export default function AccountantSignupPage() {
           />
         </div>
         {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? "Creating..." : "Create account"}
+        <button type="submit" className="btn-primary w-full" disabled={loading} aria-busy={loading}>
+          <LoadingButtonLabel loading={loading} loadingLabel="Creating account">
+            Create account
+          </LoadingButtonLabel>
         </button>
       </form>
 

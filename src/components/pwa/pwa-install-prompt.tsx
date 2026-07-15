@@ -9,26 +9,35 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 function isStandalone() {
-  if (typeof window === "undefined") return false;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     ("standalone" in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true)
   );
 }
 
-function isIos() {
-  if (typeof window === "undefined") return false;
+function isIosDevice() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
-export function PwaInstallPrompt({ className }: { className?: string }) {
+export function PwaInstallPrompt({
+  className,
+  variant = "default",
+}: {
+  className?: string;
+  variant?: "default" | "hero";
+}) {
+  const [ready, setReady] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [ios, setIos] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
+  const isHero = variant === "hero";
 
   useEffect(() => {
+    setIos(isIosDevice());
     if (isStandalone()) {
       setInstalled(true);
+      setReady(true);
       return;
     }
 
@@ -38,11 +47,12 @@ export function PwaInstallPrompt({ className }: { className?: string }) {
     }
 
     window.addEventListener("beforeinstallprompt", onInstallable);
+    setReady(true);
     return () => window.removeEventListener("beforeinstallprompt", onInstallable);
   }, []);
 
   async function handleInstall() {
-    if (isIos()) {
+    if (ios) {
       setShowIosHint((v) => !v);
       return;
     }
@@ -57,28 +67,40 @@ export function PwaInstallPrompt({ className }: { className?: string }) {
     setDeferred(null);
   }
 
-  if (installed) return null;
+  // Avoid SSR/client mismatch — only render after mount when UA is known.
+  if (!ready || installed) return null;
 
-  const canInstall = Boolean(deferred) || isIos();
-
+  const canInstall = Boolean(deferred) || ios;
   if (!canInstall) return null;
 
   return (
     <div className={className}>
-      <button type="button" className="pwa-install-card" onClick={() => void handleInstall()}>
+      <button
+        type="button"
+        className={isHero ? "pwa-install-card pwa-install-card--hero" : "pwa-install-card"}
+        onClick={() => void handleInstall()}
+      >
         <span className="pwa-install-icon" aria-hidden>
-          {isIos() ? <Share className="h-5 w-5" /> : <Download className="h-5 w-5" />}
+          {ios ? <Share className="h-5 w-5" /> : <Download className="h-5 w-5" />}
         </span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-sm font-semibold">Install Benchmark Express</span>
-          <span className="block text-xs text-[var(--app-text-muted)]">
-            {isIos() ? "Add to your home screen for quick access" : "Download the app to this device"}
+          <span
+            className={
+              isHero ? "pwa-install-subtitle block text-xs" : "block text-xs text-[var(--app-text-muted)]"
+            }
+          >
+            {ios ? "Add to your home screen for quick access" : "Download the app to this device"}
           </span>
         </span>
       </button>
 
-      {showIosHint && isIos() ? (
-        <p className="mt-2 text-xs text-[var(--app-text-secondary)]">
+      {showIosHint && ios ? (
+        <p
+          className={
+            isHero ? "pwa-install-hint--hero mt-2 text-xs" : "mt-2 text-xs text-[var(--app-text-secondary)]"
+          }
+        >
           Tap <strong>Share</strong> in Safari, then <strong>Add to Home Screen</strong>.
         </p>
       ) : null}

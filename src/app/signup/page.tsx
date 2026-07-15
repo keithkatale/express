@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthPage } from "@/components/layout/page-container";
+import { LoadingButtonLabel } from "@/components/ui/loading-button";
+import { authEmailFromIdentifier, parseAuthIdentifier } from "@/lib/auth-identifier";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,12 +21,23 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
+    const parsed = parseAuthIdentifier(identifier);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      setLoading(false);
+      return;
+    }
+
     const supabase = createSupabaseBrowserClient();
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: authEmailFromIdentifier(parsed.value),
       password,
       options: {
-        data: { full_name: fullName, role: "parent" },
+        data: {
+          full_name: fullName,
+          role: "parent",
+          phone: parsed.value.kind === "phone" ? parsed.value.e164 : undefined,
+        },
       },
     });
 
@@ -32,6 +45,13 @@ export default function SignupPage() {
       setError(signUpError.message);
       setLoading(false);
       return;
+    }
+
+    if (data.user && parsed.value.kind === "phone") {
+      await supabase
+        .from("profiles")
+        .update({ phone: parsed.value.e164, full_name: fullName })
+        .eq("id", data.user.id);
     }
 
     router.push("/app/onboard");
@@ -54,15 +74,18 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">Email</label>
+          <label className="mb-2 block text-sm font-medium">Email or phone</label>
           <input
             className="input-ios"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            inputMode="email"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
-            autoComplete="email"
+            autoComplete="username"
+            placeholder="you@email.com or 07XX XXX XXX"
           />
+          <p className="mt-1.5 text-xs text-white/55">Uganda numbers use +256.</p>
         </div>
         <div>
           <label className="mb-2 block text-sm font-medium">Password</label>
@@ -77,8 +100,10 @@ export default function SignupPage() {
           />
         </div>
         {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? "Creating..." : "Create account"}
+        <button type="submit" className="btn-primary w-full" disabled={loading} aria-busy={loading}>
+          <LoadingButtonLabel loading={loading} loadingLabel="Creating account">
+            Create account
+          </LoadingButtonLabel>
         </button>
       </form>
 

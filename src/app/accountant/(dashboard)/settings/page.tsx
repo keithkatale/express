@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConnectParentForm } from "@/components/students/connect-parent-form";
 import { useTheme } from "@/components/theme/theme-provider";
+import {
+  isDepositSoundMuted,
+  playDepositChaChing,
+  setDepositSoundMuted,
+  unlockDepositSound,
+} from "@/lib/deposit-sound";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types/database";
 
@@ -13,8 +19,11 @@ export default function SecretarySettingsPage() {
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [students, setStudents] = useState<{ id: string; full_name: string }[]>([]);
+  const [soundMuted, setSoundMuted] = useState(false);
 
   useEffect(() => {
+    setSoundMuted(isDepositSoundMuted());
+
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const {
@@ -77,6 +86,50 @@ export default function SecretarySettingsPage() {
           ))}
         </div>
       </div>
+
+      {isStaff ? (
+        <div className="card space-y-3 p-4">
+          <div>
+            <p className="text-sm font-medium">Deposit alert sound</p>
+            <p className="mt-1 text-sm text-[var(--app-text-secondary)]">
+              Plays a cha-ching when a parent sends money while this dashboard is open.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`btn-secondary flex-1 px-3 py-2 text-sm ${!soundMuted ? "ring-2 ring-[var(--lumina-primary)]" : ""}`}
+              onClick={() => {
+                setDepositSoundMuted(false);
+                setSoundMuted(false);
+                unlockDepositSound();
+              }}
+            >
+              On
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary flex-1 px-3 py-2 text-sm ${soundMuted ? "ring-2 ring-[var(--lumina-primary)]" : ""}`}
+              onClick={() => {
+                setDepositSoundMuted(true);
+                setSoundMuted(true);
+              }}
+            >
+              Muted
+            </button>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-2 text-sm"
+              onClick={() => {
+                unlockDepositSound();
+                playDepositChaChing({ force: true });
+              }}
+            >
+              Test
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {isStaff ? (
         <>

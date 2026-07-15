@@ -5,9 +5,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { playDepositChaChing, unlockDepositSound } from "@/lib/deposit-sound";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type PendingDeposits = {
@@ -21,9 +23,11 @@ const PendingDepositsContext = createContext<PendingDeposits>(empty);
 
 function usePendingDepositsState(enabled: boolean): PendingDeposits {
   const [pending, setPending] = useState<PendingDeposits>(empty);
+  const previousTotalRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     if (!enabled) {
+      previousTotalRef.current = null;
       setPending(empty);
       return;
     }
@@ -40,7 +44,14 @@ function usePendingDepositsState(enabled: boolean): PendingDeposits {
       byStudentId[row.student_id] = (byStudentId[row.student_id] ?? 0) + 1;
     }
 
-    setPending({ total: data?.length ?? 0, byStudentId });
+    const nextTotal = data?.length ?? 0;
+    const previous = previousTotalRef.current;
+    // Skip initial load; only chime when pending count rises while the dashboard is open.
+    if (previous !== null && nextTotal > previous) {
+      playDepositChaChing();
+    }
+    previousTotalRef.current = nextTotal;
+    setPending({ total: nextTotal, byStudentId });
   }, [enabled]);
 
   useEffect(() => {
@@ -49,6 +60,10 @@ function usePendingDepositsState(enabled: boolean): PendingDeposits {
 
   useEffect(() => {
     if (!enabled) return;
+
+    const unlock = () => unlockDepositSound();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
 
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
@@ -61,6 +76,8 @@ function usePendingDepositsState(enabled: boolean): PendingDeposits {
       .subscribe();
 
     return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
       void supabase.removeChannel(channel);
     };
   }, [enabled, refresh]);

@@ -19,6 +19,15 @@ function isIosDevice() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+/** Install prompt is for phones/tablets only — hide on desktop browsers. */
+function isMobileOrTablet() {
+  const ua = navigator.userAgent;
+  if (/android|iphone|ipod|ipad|mobile/i.test(ua)) return true;
+  // iPadOS 13+ reports as Macintosh but supports multitouch
+  if (navigator.maxTouchPoints > 1 && /macintosh/i.test(ua)) return true;
+  return false;
+}
+
 export function PwaInstallPrompt({
   className,
   variant = "default",
@@ -31,10 +40,13 @@ export function PwaInstallPrompt({
   const [installed, setInstalled] = useState(false);
   const [ios, setIos] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [showOnDevice, setShowOnDevice] = useState(false);
   const isHero = variant === "hero";
 
   useEffect(() => {
     setIos(isIosDevice());
+    setShowOnDevice(isMobileOrTablet());
+
     if (isStandalone()) {
       setInstalled(true);
       setReady(true);
@@ -68,7 +80,7 @@ export function PwaInstallPrompt({
   }
 
   // Avoid SSR/client mismatch — only render after mount when UA is known.
-  if (!ready || installed) return null;
+  if (!ready || installed || !showOnDevice) return null;
 
   const canInstall = Boolean(deferred) || ios;
   if (!canInstall) return null;

@@ -10,12 +10,19 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 const BALANCE_CARD_GRADIENT =
   "linear-gradient(120.58deg, rgb(32, 16, 88) 12.286%, rgb(59, 31, 160) 87.693%)";
 
+export type BalanceHeroStat = {
+  label: string;
+  value: string;
+};
+
 export function BalanceHero({
   label,
   amount,
   name,
   meta,
   subtitle,
+  stats,
+  compact,
   className,
 }: {
   label: string;
@@ -23,12 +30,23 @@ export function BalanceHero({
   name?: string;
   meta?: string;
   subtitle?: string;
+  /** Optional breakdown row rendered inside the gradient card. */
+  stats?: BalanceHeroStat[];
+  /** Shorter card for overview totals (e.g. platform balance). */
+  compact?: boolean;
   className?: string;
 }) {
+  const hasStats = Boolean(stats?.length);
+
   return (
     <div
       className={cn(
-        "relative isolate aspect-[1.68/1] w-full overflow-hidden rounded-[1.15rem] text-white shadow-[0_18px_48px_rgba(32,16,88,0.28)] md:rounded-2xl",
+        "relative isolate w-full overflow-hidden rounded-[1.15rem] text-white shadow-[0_18px_48px_rgba(32,16,88,0.28)] md:rounded-2xl",
+        compact
+          ? hasStats
+            ? "py-4 md:py-5"
+            : "min-h-[7.5rem] py-4 md:min-h-[8.25rem] md:py-5"
+          : "aspect-[1.68/1]",
         className
       )}
       style={{ backgroundImage: BALANCE_CARD_GRADIENT }}
@@ -59,17 +77,53 @@ export function BalanceHero({
         aria-hidden
       />
 
-      <div className="relative z-10 flex h-full flex-col px-5 py-4 md:px-5 md:py-4">
+      <div
+        className={cn(
+          "relative z-10 flex h-full flex-col px-5 md:px-5",
+          compact ? "justify-center gap-1.5 py-0" : "py-4 md:py-4"
+        )}
+      >
         <p className="text-center text-[11px] font-medium tracking-[0.06em] text-white/70 uppercase md:text-xs">
           {label}
         </p>
 
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="font-display text-[clamp(1.9rem,6.5vw,2.45rem)] font-semibold leading-none tracking-[-0.02em] text-white [text-shadow:0_1px_18px_rgba(16,8,48,0.25)]">
+        <div
+          className={cn(
+            "flex flex-col items-center justify-center text-center",
+            !compact && "flex-1"
+          )}
+        >
+          <p
+            className={cn(
+              "font-display font-semibold leading-none tracking-[-0.02em] text-white [text-shadow:0_1px_18px_rgba(16,8,48,0.25)]",
+              compact
+                ? "text-[clamp(1.45rem,5vw,1.85rem)]"
+                : "text-[clamp(1.9rem,6.5vw,2.45rem)]"
+            )}
+          >
             {formatUgx(amount)}
           </p>
-          {subtitle ? <p className="mt-2 text-xs text-white/65">{subtitle}</p> : null}
+          {subtitle ? (
+            <p className={cn("text-xs text-white/65", compact ? "mt-1.5" : "mt-2")}>
+              {subtitle}
+            </p>
+          ) : null}
         </div>
+
+        {hasStats ? (
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/15 pt-3 md:mt-4 md:gap-3 md:pt-3.5">
+            {stats!.map((stat) => (
+              <div key={stat.label} className="min-w-0 text-center">
+                <p className="truncate text-[10px] font-medium tracking-[0.05em] text-white/55 uppercase md:text-[11px]">
+                  {stat.label}
+                </p>
+                <p className="mt-1 truncate font-display text-xs font-semibold text-white md:text-sm">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {name ? (
           <div className="min-w-0 text-left">

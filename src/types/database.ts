@@ -52,6 +52,8 @@ export type LedgerEntry = {
   note: string | null;
   created_by: string;
   confirmed_by: string | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
   created_at: string;
   updated_at: string;
 };

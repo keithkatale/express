@@ -66,7 +66,19 @@ export default function SecretaryStudentDetailPage() {
     if (summary) setStudent(summary as StudentSummary);
     setEntries((ledger ?? []) as LedgerEntry[]);
     const pendingList = (pending ?? []) as LedgerEntryWithStudent[];
-    setPendingEntries(pendingList);
+
+    // Keep already-shown deposits visible after they are marked received.
+    setPendingEntries((prev) => {
+      const byId = new Map(prev.map((entry) => [entry.id, entry]));
+      for (const entry of pendingList) {
+        if (!byId.has(entry.id)) {
+          byId.set(entry.id, entry);
+        }
+      }
+      return Array.from(byId.values()).sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
 
     if (user && pendingList.length > 0 && !acknowledgingRef.current) {
       acknowledgingRef.current = true;
@@ -79,6 +91,12 @@ export default function SecretaryStudentDetailPage() {
           setSeenNotice(
             `${confirmed.length} deposit${confirmed.length === 1 ? "" : "s"} marked as received`
           );
+          const confirmedIds = new Set(confirmed.map((e) => e.id));
+          setPendingEntries((prev) =>
+            prev.map((entry) =>
+              confirmedIds.has(entry.id) ? { ...entry, status: "confirmed" as const } : entry
+            )
+          );
           const [{ data: summaryAfter }, { data: ledgerAfter }] = await Promise.all([
             supabase.from("student_summary").select("*").eq("id", studentId).single(),
             supabase
@@ -90,7 +108,6 @@ export default function SecretaryStudentDetailPage() {
           ]);
           if (summaryAfter) setStudent(summaryAfter as StudentSummary);
           setEntries((ledgerAfter ?? []) as LedgerEntry[]);
-          setPendingEntries([]);
         }
       } finally {
         acknowledgingRef.current = false;
@@ -204,7 +221,8 @@ export default function SecretaryStudentDetailPage() {
             <span className="badge badge-pending">{pendingEntries.length}</span>
           </h2>
           <p className="text-sm text-[var(--app-text-secondary)]">
-            These are being marked as received now that you&apos;ve opened this profile.
+            Marked as received when you open this profile. Details stay visible so you can review
+            them.
           </p>
           {pendingEntries.map((entry) => (
             <div key={entry.id} className="rounded-lg border border-[var(--app-divider)] p-3">
@@ -212,7 +230,8 @@ export default function SecretaryStudentDetailPage() {
                 <div>
                   <p className="font-medium">{formatUgx(entry.amount)}</p>
                   <p className="text-xs text-[var(--app-text-muted)]">
-                    {format(new Date(entry.created_at), "dd MMM yyyy, HH:mm")}
+                    {format(new Date(entry.created_at), "dd MMM yyyy, HH:mm")} ·{" "}
+                    {entry.status === "confirmed" ? "Received" : "Recording…"}
                   </p>
                   {entry.note ? (
                     <p className="mt-1 text-sm text-[var(--app-text-secondary)]">{entry.note}</p>

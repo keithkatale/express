@@ -7,6 +7,11 @@ import { MoneyAmountField } from "@/components/ui/money-numpad";
 import { SuccessScreen } from "@/components/ui/success-screen";
 import { LoadingButtonLabel } from "@/components/ui/loading-button";
 import { PageStack } from "@/components/layout/page-container";
+import {
+  pollDGatewayUntilTerminal,
+  startDGatewayCheckout,
+} from "@/lib/funding/dgateway-checkout-client";
+import { isDGatewayDepositsEnabled } from "@/lib/funding/dgateway-deposits-enabled";
 import { formatUgx, parseUgxInput } from "@/lib/format-money";
 import { formatStudentMeta } from "@/lib/student-meta";
 import { cn } from "@/lib/utils";
@@ -15,8 +20,10 @@ import type { StudentSummary } from "@/types/database";
 
 type Step = "student" | "amount" | "note" | "review" | "confirm";
 type StepDirection = "forward" | "back";
+type DepositMode = "demo" | "live";
 
 const STEP_ORDER: Step[] = ["student", "amount", "note", "review", "confirm"];
+const liveDepositsEnabled = isDGatewayDepositsEnabled();
 
 const STEP_META: Record<Step, { title: string; subtitle?: string }> = {
   student: {
@@ -36,7 +43,7 @@ const STEP_META: Record<Step, { title: string; subtitle?: string }> = {
   },
   confirm: {
     title: "Confirm & send",
-    subtitle: "Last step — notify the school of this deposit",
+    subtitle: "Choose demo or live mobile-money payment",
   },
 };
 
@@ -49,7 +56,11 @@ function StepProgress({ step }: { step: Step }) {
         <span
           key={s}
           className={
-            i < index ? "send-step-dot send-step-dot--done" : i === index ? "send-step-dot send-step-dot--active" : "send-step-dot"
+            i < index
+              ? "send-step-dot send-step-dot--done"
+              : i === index
+                ? "send-step-dot send-step-dot--active"
+                : "send-step-dot"
           }
         />
       ))}
@@ -111,9 +122,13 @@ export default function SendMoneyForm() {
   const [studentId, setStudentId] = useState(preselected ?? "");
   const [amountInput, setAmountInput] = useState("");
   const [note, setNote] = useState("");
+  const [depositMode, setDepositMode] = useState<DepositMode>("demo");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [awaitingPhonePrompt, setAwaitingPhonePrompt] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMode, setSuccessMode] = useState<DepositMode>("demo");
 
   const loadStudents = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
@@ -169,7 +184,7 @@ export default function SendMoneyForm() {
     if (index < STEP_ORDER.length - 1) setStep(STEP_ORDER[index + 1]);
   }
 
-  async function handleSend() {
+  async function handleDemoSend() {
     if (!studentId || !amount || !selected) {
       setError("Missing student or amount.");
       return;
@@ -204,17 +219,84 @@ export default function SendMoneyForm() {
       return;
     }
 
+    setSuccessMode("demo");
     setDirection("forward");
     setSuccess(true);
     setLoading(false);
+  }
+
+  async function handleLiveSend() {
+    if (!studentId || !amount || !selected) {
+      setError("Missing student or amount.");
+      return;
+    }
+    if (!phone.trim()) {
+      setError("Enter the mobile-money phone number that will receive the payment prompt.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setAwaitingPhonePrompt(false);
+
+    try {
+      const started = await startDGatewayCheckout({
+        student_id: studentId,
+        amount,
+        currency: "UGX",
+        phone_number: phone.trim(),
+        note: note.trim() || undefined,
+        description: `Deposit for ${selected.full_name}`,
+      });
+
+      setAwaitingPhonePrompt(true);
+      const { promise } = pollDGatewayUntilTerminal(started.reference);
+
+      const status = await promise;
+      if (status === "failed") {
+        setError("Payment failed or was cancelled on the phone. Try again.");
+        setAwaitingPhonePrompt(false);
+        setLoading(false);
+        return;
+      }
+      if (status !== "completed") {
+        setError(
+          "Still waiting for phone approval. If you already paid, the school will be notified shortly — check Activity."
+        );
+        setAwaitingPhonePrompt(false);
+        setLoading(false);
+        return;
+      }
+
+      setSuccessMode("live");
+      setDirection("forward");
+      setSuccess(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start mobile-money payment.");
+    } finally {
+      setAwaitingPhonePrompt(false);
+      setLoading(false);
+    }
+  }
+
+  async function handleSend() {
+    if (depositMode === "live" && liveDepositsEnabled) {
+      await handleLiveSend();
+      return;
+    }
+    await handleDemoSend();
   }
 
   if (success && selected && amount) {
     return (
       <PageStack className="content-compact send-flow">
         <SuccessScreen
-          title="Deposit sent!"
-          subtitle={`${selected.full_name} — the school has been notified`}
+          title={successMode === "live" ? "Payment received!" : "Deposit sent!"}
+          subtitle={
+            successMode === "live"
+              ? `${selected.full_name} — mobile money paid; the school has been notified`
+              : `${selected.full_name} — the school has been notified`
+          }
           detail={formatUgx(amount)}
           primaryAction={
             <button type="button" className="btn-primary w-full" onClick={() => router.push("/app")}>
@@ -222,7 +304,11 @@ export default function SendMoneyForm() {
             </button>
           }
           secondaryAction={
-            <button type="button" className="btn-secondary w-full" onClick={() => router.push("/app/activity")}>
+            <button
+              type="button"
+              className="btn-secondary w-full"
+              onClick={() => router.push("/app/activity")}
+            >
               View activity
             </button>
           }
@@ -315,6 +401,10 @@ export default function SendMoneyForm() {
                   setError("Enter a valid amount to continue.");
                   return;
                 }
+                if (amount < 500) {
+                  setError("Minimum deposit is UGX 500.");
+                  return;
+                }
                 goNext();
               }}
             >
@@ -356,7 +446,9 @@ export default function SendMoneyForm() {
           <>
             <div className="card space-y-4 p-4 md:p-5">
               <div>
-                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Recipient</p>
+                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">
+                  Recipient
+                </p>
                 <p className="font-display text-xl font-semibold">{selected.full_name}</p>
                 <p className="text-sm text-[var(--app-text-muted)]">
                   {formatStudentMeta({
@@ -378,7 +470,9 @@ export default function SendMoneyForm() {
                 </div>
               ) : null}
               <div className="border-t border-[var(--app-divider)] pt-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">Destination</p>
+                <p className="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">
+                  Destination
+                </p>
                 <p className="text-sm text-[var(--app-text-secondary)]">
                   Funds go to the school. Once the bursar sees this deposit,{" "}
                   {selected.full_name}&apos;s balance will update.
@@ -401,6 +495,65 @@ export default function SendMoneyForm() {
               name={selected.full_name}
               meta={selected.class_name}
             />
+
+            <div className="card space-y-3 p-4">
+              <p className="text-sm font-medium">Payment method</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`btn-secondary flex-1 px-3 py-2 text-sm ${
+                    depositMode === "demo" ? "ring-2 ring-[var(--lumina-primary)]" : ""
+                  }`}
+                  onClick={() => {
+                    setDepositMode("demo");
+                    setError(null);
+                  }}
+                >
+                  Demo deposit
+                </button>
+                <button
+                  type="button"
+                  className={`btn-secondary flex-1 px-3 py-2 text-sm ${
+                    depositMode === "live" ? "ring-2 ring-[var(--lumina-primary)]" : ""
+                  } ${!liveDepositsEnabled ? "opacity-50" : ""}`}
+                  disabled={!liveDepositsEnabled}
+                  onClick={() => {
+                    setDepositMode("live");
+                    setError(null);
+                  }}
+                >
+                  Live (mobile money)
+                </button>
+              </div>
+              <p className="text-xs text-[var(--app-text-muted)]">
+                {depositMode === "demo"
+                  ? "Demo notifies the school without charging a phone. Use this for testing."
+                  : liveDepositsEnabled
+                    ? "Live charges via DGateway (MTN/Airtel). Approve the prompt on your phone."
+                    : "Live deposits are not enabled on this environment."}
+              </p>
+            </div>
+
+            {depositMode === "live" && liveDepositsEnabled ? (
+              <div>
+                <label htmlFor="mm-phone" className="mb-2 block text-sm font-medium">
+                  Mobile money number
+                </label>
+                <input
+                  id="mm-phone"
+                  className="input-ios"
+                  inputMode="tel"
+                  placeholder="07XX XXX XXX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  autoComplete="tel"
+                />
+                <p className="mt-1 text-xs text-[var(--app-text-muted)]">
+                  Uganda number that will receive the payment prompt (+256).
+                </p>
+              </div>
+            ) : null}
+
             <div className="card space-y-2 p-4 text-sm text-[var(--app-text-secondary)]">
               <div className="flex justify-between gap-3">
                 <span>Student</span>
@@ -423,12 +576,22 @@ export default function SendMoneyForm() {
                 </div>
               ) : null}
               <div className="flex justify-between gap-3">
-                <span>Status after send</span>
+                <span>Mode</span>
                 <span className="text-right font-medium text-[var(--app-text-primary)]">
-                  School notified
+                  {depositMode === "live" ? "Live mobile money" : "Demo"}
                 </span>
               </div>
             </div>
+
+            {awaitingPhonePrompt ? (
+              <div className="card border-[var(--lumina-primary)]/25 p-4 text-sm">
+                <p className="font-medium">Check your phone</p>
+                <p className="mt-1 text-[var(--app-text-secondary)]">
+                  Approve the mobile-money prompt. This screen waits up to about 90 seconds.
+                </p>
+              </div>
+            ) : null}
+
             {error ? <p className="text-sm text-[var(--lumina-error)]">{error}</p> : null}
             <button
               type="button"
@@ -437,8 +600,17 @@ export default function SendMoneyForm() {
               aria-busy={loading}
               onClick={() => void handleSend()}
             >
-              <LoadingButtonLabel loading={loading} loadingLabel="Sending">
-                Confirm & send
+              <LoadingButtonLabel
+                loading={loading}
+                loadingLabel={
+                  awaitingPhonePrompt
+                    ? "Waiting for phone"
+                    : depositMode === "live"
+                      ? "Starting payment"
+                      : "Sending"
+                }
+              >
+                {depositMode === "live" ? "Pay with mobile money" : "Confirm & send"}
               </LoadingButtonLabel>
             </button>
           </>

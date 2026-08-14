@@ -23,6 +23,8 @@ export type Database = {
           entry_type: Database["public"]["Enums"]["entry_type"]
           id: string
           note: string | null
+          reference_id: string | null
+          reference_type: string | null
           status: Database["public"]["Enums"]["entry_status"]
           student_id: string
           updated_at: string
@@ -35,6 +37,8 @@ export type Database = {
           entry_type: Database["public"]["Enums"]["entry_type"]
           id?: string
           note?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           student_id: string
           updated_at?: string
@@ -47,6 +51,8 @@ export type Database = {
           entry_type?: Database["public"]["Enums"]["entry_type"]
           id?: string
           note?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           student_id?: string
           updated_at?: string

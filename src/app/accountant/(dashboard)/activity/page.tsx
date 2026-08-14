@@ -1,25 +1,47 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { EmptyState, TransactionRow } from "@/components/ui/money-ui";
+import {
+  BalanceHero,
+  EmptyState,
+  ListCard,
+  LoadingCard,
+  TransactionRow,
+} from "@/components/ui/money-ui";
+import { PageStack } from "@/components/layout/page-container";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
+import {
+  getPlatformMoneyOverview,
+  getStaffActivity,
+  type PlatformMoneyOverview,
+} from "@/lib/ledger/service";
+import { formatUgx } from "@/lib/format-money";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { LedgerEntryWithStudent } from "@/types/database";
 import { format } from "date-fns";
 
+const EMPTY_OVERVIEW: PlatformMoneyOverview = {
+  totalAvailable: 0,
+  totalIn: 0,
+  totalOut: 0,
+  pendingAmount: 0,
+  studentsWithBalance: 0,
+};
+
 export default function SecretaryActivityPage() {
   const [entries, setEntries] = useState<LedgerEntryWithStudent[]>([]);
+  const [overview, setOverview] = useState<PlatformMoneyOverview>(EMPTY_OVERVIEW);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
-    const { data } = await supabase
-      .from("ledger_entries")
-      .select("*, student:students(id, full_name, class_name, admission_no)")
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const [activity, money] = await Promise.all([
+      getStaffActivity(supabase),
+      getPlatformMoneyOverview(supabase),
+    ]);
 
-    setEntries((data ?? []) as LedgerEntryWithStudent[]);
+    setEntries(activity);
+    setOverview(money);
     setLoading(false);
   }, []);
 
@@ -30,30 +52,61 @@ export default function SecretaryActivityPage() {
   useLedgerRealtime(refresh);
 
   return (
-    <div className="space-y-6">
+    <PageStack>
       <div>
-        <h1 className="font-display text-3xl font-semibold">Activity</h1>
-        <p className="mt-1 text-sm text-[var(--app-text-muted)]">All school transactions</p>
+        <h1 className="page-title">Activity</h1>
+        <p className="page-subtitle mt-1">
+          Platform money on hand and every school transaction
+        </p>
       </div>
 
       {loading ? (
-        <div className="shimmer card h-24 rounded-lg" />
-      ) : entries.length === 0 ? (
-        <EmptyState title="No activity" description="Transactions will appear here." />
-      ) : (
-        <div className="card px-4">
-          {entries.map((entry) => (
-            <TransactionRow
-              key={entry.id}
-              title={entry.student.full_name}
-              subtitle={`${entry.entry_type} · ${format(new Date(entry.created_at), "dd MMM yyyy, HH:mm")}`}
-              amount={entry.amount}
-              entryType={entry.entry_type}
-              status={entry.status}
-            />
-          ))}
+        <div className="space-y-4">
+          <div className="shimmer min-h-[9.5rem] w-full rounded-[1.15rem]" />
+          <LoadingCard />
         </div>
+      ) : (
+        <>
+          <BalanceHero
+            compact
+            label="Total available"
+            amount={overview.totalAvailable}
+            subtitle={
+              overview.studentsWithBalance > 0
+                ? `Across ${overview.studentsWithBalance} student${overview.studentsWithBalance === 1 ? "" : "s"} with a balance`
+                : "No student balances yet"
+            }
+            stats={[
+              { label: "Received in", value: formatUgx(overview.totalIn) },
+              { label: "Paid out", value: formatUgx(overview.totalOut) },
+              { label: "Still pending", value: formatUgx(overview.pendingAmount) },
+            ]}
+          />
+
+          <div>
+            <h2 className="section-title mb-3">Recent transactions</h2>
+            {entries.length === 0 ? (
+              <EmptyState
+                title="No activity"
+                description="Deposits and withdrawals will appear here."
+              />
+            ) : (
+              <ListCard>
+                {entries.map((entry) => (
+                  <TransactionRow
+                    key={entry.id}
+                    title={entry.student.full_name}
+                    subtitle={`${entry.entry_type} · ${format(new Date(entry.created_at), "dd MMM yyyy, HH:mm")}`}
+                    amount={entry.amount}
+                    entryType={entry.entry_type}
+                    status={entry.status}
+                  />
+                ))}
+              </ListCard>
+            )}
+          </div>
+        </>
       )}
-    </div>
+    </PageStack>
   );
 }

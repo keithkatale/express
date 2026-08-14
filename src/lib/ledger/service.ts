@@ -121,6 +121,65 @@ export async function getStaffActivity(supabase: SupabaseClient) {
   return (data ?? []) as LedgerEntryWithStudent[];
 }
 
+export type PlatformMoneyOverview = {
+  /** Sum of all student balances currently held by the school. */
+  totalAvailable: number;
+  /** Confirmed deposits + adjustments (all time). */
+  totalIn: number;
+  /** Confirmed withdrawals (all time). */
+  totalOut: number;
+  /** Pending deposit amounts not yet received on the bursar desk. */
+  pendingAmount: number;
+  /** Active students with a non-zero balance. */
+  studentsWithBalance: number;
+};
+
+export async function getPlatformMoneyOverview(
+  supabase: SupabaseClient
+): Promise<PlatformMoneyOverview> {
+  const [{ data: summaries, error: summaryError }, { data: ledger, error: ledgerError }] =
+    await Promise.all([
+      supabase.from("student_summary").select("balance").eq("active", true),
+      supabase.from("ledger_entries").select("entry_type, amount, status"),
+    ]);
+
+  if (summaryError) throw summaryError;
+  if (ledgerError) throw ledgerError;
+
+  let totalAvailable = 0;
+  let studentsWithBalance = 0;
+  for (const row of summaries ?? []) {
+    const balance = Number(row.balance) || 0;
+    totalAvailable += balance;
+    if (balance > 0) studentsWithBalance += 1;
+  }
+
+  let totalIn = 0;
+  let totalOut = 0;
+  let pendingAmount = 0;
+  for (const entry of ledger ?? []) {
+    const amount = Number(entry.amount) || 0;
+    if (entry.status === "pending" && entry.entry_type === "deposit") {
+      pendingAmount += amount;
+      continue;
+    }
+    if (entry.status !== "confirmed") continue;
+    if (entry.entry_type === "deposit" || entry.entry_type === "adjustment") {
+      totalIn += amount;
+    } else if (entry.entry_type === "withdrawal") {
+      totalOut += amount;
+    }
+  }
+
+  return {
+    totalAvailable,
+    totalIn,
+    totalOut,
+    pendingAmount,
+    studentsWithBalance,
+  };
+}
+
 export async function createParentDeposit(
   supabase: SupabaseClient,
   input: { studentId: string; amount: number; note?: string; createdBy: string }

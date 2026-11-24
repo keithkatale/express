@@ -7,6 +7,7 @@ import { BalanceHero, EmptyState } from "@/components/ui/money-ui";
 import { MoneyAmountField } from "@/components/ui/money-numpad";
 import { SuccessScreen } from "@/components/ui/success-screen";
 import { CompactPanel } from "@/components/layout/page-container";
+import { CardAssignPanel } from "@/components/cards/card-assign-panel";
 import { ConnectParentForm } from "@/components/students/connect-parent-form";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { acknowledgePendingDeposits } from "@/lib/ledger/service";
@@ -241,6 +242,10 @@ export default function SecretaryStudentDetailPage() {
             </div>
           ))}
         </div>
+      ) : null}
+
+      {!withdrawing && !connectingParent ? (
+        <CardAssignPanel studentId={student.id} studentName={student.full_name} />
       ) : null}
 
       {!withdrawing && !connectingParent ? (

@@ -1,4 +1,4 @@
-import { Activity, Clock, Home, Send, Settings, Users } from "lucide-react";
+import { Activity, Clock, CreditCard, Home, Lightbulb, Send, Settings, Users } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -16,6 +16,8 @@ export const parentNav: NavItem[] = [
 
 export const accountantNav: NavItem[] = [
   { href: "/accountant/students", label: "Students", icon: Users, pendingBadge: true },
+  { href: "/accountant/cards", label: "Cards", icon: Lightbulb },
+  { href: "/accountant/payments", label: "Withdraw", icon: CreditCard },
   { href: "/accountant/pending", label: "Pending", icon: Clock, pendingBadge: true },
   { href: "/accountant/activity", label: "Activity", icon: Activity },
   { href: "/accountant/settings", label: "Settings", icon: Settings },

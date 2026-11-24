@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CardTapLookup } from "@/components/cards/card-tap-lookup";
 import { EmptyState, StudentCard } from "@/components/ui/money-ui";
 import { formatUgx } from "@/lib/format-money";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { usePendingDeposits } from "@/hooks/use-pending-deposits";
+import { useCardWedge } from "@/hooks/use-card-wedge";
+import { looksLikeTypedCardNumber } from "@/lib/cards/nfc-bridge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { StudentSummary } from "@/types/database";
+import type { StudentByCard, StudentSummary } from "@/types/database";
 
 export function SecretaryStudentsClient({
   initialStudents,
@@ -17,6 +21,16 @@ export function SecretaryStudentsClient({
   const [students, setStudents] = useState(initialStudents);
   const [search, setSearch] = useState("");
   const pending = usePendingDeposits();
+  const router = useRouter();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [cardMessage, setCardMessage] = useState<string | null>(null);
+
+  // At a desk with a mouse (where the USB reader lives), keep the search box
+  // focused so a tapped card's number lands here. Skipped on touch screens,
+  // where focusing would pop the on-screen keyboard on every visit.
+  useEffect(() => {
+    if (window.matchMedia("(pointer: fine)").matches) searchRef.current?.focus();
+  }, []);
 
   const refresh = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
@@ -38,6 +52,37 @@ export function SecretaryStudentsClient({
 
   useLedgerRealtime(refresh);
 
+  /** Open the student holding this card, or explain that nobody does. */
+  async function openCard(value: string) {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.rpc("find_student_by_card", { p_card_uid: value });
+    if (error) {
+      setCardMessage(error.message);
+      return;
+    }
+    const match = (data as StudentByCard[] | null)?.[0];
+    if (match) {
+      router.push(`/accountant/student/${match.id}`);
+      return;
+    }
+    setSearch("");
+    setCardMessage(`Card ${value} is not assigned to anyone yet. Open a student and assign it.`);
+  }
+
+  /** Enter in the search box: a tapped card opens its student; text searches. */
+  function handleEnter() {
+    const value = search.trim();
+    if (looksLikeTypedCardNumber(value)) {
+      void openCard(value);
+      return;
+    }
+    setCardMessage(null);
+    void refresh();
+  }
+
+  // A tap while focus is elsewhere on the page (not in the search box).
+  useCardWedge((value) => void openCard(value));
+
   const filtered = students;
 
   return (
@@ -51,15 +96,22 @@ export function SecretaryStudentsClient({
         </Link>
       ) : null}
 
+      <CardTapLookup />
+
       <input
+        ref={searchRef}
         className="input-ios"
-        placeholder="Search by name, class, ID, or slug"
+        placeholder="Search by name, class or ID, or tap a card"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") void refresh();
+          if (e.key === "Enter") handleEnter();
         }}
       />
+
+      {cardMessage ? (
+        <p className="text-sm text-amber-500">{cardMessage}</p>
+      ) : null}
 
       {filtered.length === 0 ? (
         <EmptyState title="No students found" description="Try a different search or add students." />

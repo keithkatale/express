@@ -1,0 +1,21 @@
+{
+  "name": "nfc-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local bridge between the USB 13.56 MHz card reader and the Benchmark Express admin dashboard",
+  "scripts": {
+    "start": "node src/server.js",
+    "capture": "node src/capture.js",
+    "probe": "node src/probe.js",
+    "test": "node --test \"test/*.test.js\"",
+    "card-test": "node src/card-test.js",
+    "calibrate": "node src/calibrate.js",
+    "state": "node src/state-probe.js",
+    "raw-send": "node src/raw-send.js",
+    "inspect-dll": "node src/inspect-dll.js"
+  },
+  "dependencies": {
+    "node-hid": "^3.4.0"
+  }
+}

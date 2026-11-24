@@ -1,0 +1,4 @@
+node_modules/
+capture.log.json
+reader-baseline.json
+passive-watch.log

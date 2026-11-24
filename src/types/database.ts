@@ -43,6 +43,24 @@ export type ParentInvite = {
   created_at: string;
 };
 
+export type StudentCard = {
+  id: string;
+  student_id: string;
+  card_uid: string;
+  label: string | null;
+  active: boolean;
+  assigned_by: string;
+  assigned_at: string;
+  revoked_at: string | null;
+  revoked_by: string | null;
+};
+
+/** Row returned by the find_student_by_card RPC: a student plus their card. */
+export type StudentByCard = StudentSummary & {
+  card_id: string;
+  card_uid: string;
+};
+
 export type LedgerEntry = {
   id: string;
   student_id: string;

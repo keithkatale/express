@@ -10,6 +10,23 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 const BALANCE_CARD_GRADIENT =
   "linear-gradient(120.58deg, rgb(32, 16, 88) 12.286%, rgb(59, 31, 160) 87.693%)";
 
+export type BalanceHeroTone = "default" | "success" | "danger";
+
+const BALANCE_CARD_TONES: Record<BalanceHeroTone, { gradient: string; shadow: string }> = {
+  default: {
+    gradient: BALANCE_CARD_GRADIENT,
+    shadow: "shadow-[0_18px_48px_rgba(32,16,88,0.28)]",
+  },
+  success: {
+    gradient: "linear-gradient(120.58deg, rgb(6, 78, 59) 12.286%, rgb(5, 150, 105) 87.693%)",
+    shadow: "shadow-[0_18px_48px_rgba(5,90,60,0.32)]",
+  },
+  danger: {
+    gradient: "linear-gradient(120.58deg, rgb(127, 29, 29) 12.286%, rgb(220, 38, 38) 87.693%)",
+    shadow: "shadow-[0_18px_48px_rgba(127,29,29,0.32)]",
+  },
+};
+
 export type BalanceHeroStat = {
   label: string;
   value: string;
@@ -23,6 +40,7 @@ export function BalanceHero({
   subtitle,
   stats,
   compact,
+  tone = "default",
   className,
 }: {
   label: string;
@@ -34,14 +52,18 @@ export function BalanceHero({
   stats?: BalanceHeroStat[];
   /** Shorter card for overview totals (e.g. platform balance). */
   compact?: boolean;
+  /** Colour of the card: purple by default, green for success, red for a decline. */
+  tone?: BalanceHeroTone;
   className?: string;
 }) {
+  const toneStyle = BALANCE_CARD_TONES[tone];
   const hasStats = Boolean(stats?.length);
 
   return (
     <div
       className={cn(
-        "relative isolate w-full overflow-hidden rounded-[1.15rem] text-white shadow-[0_18px_48px_rgba(32,16,88,0.28)] md:rounded-2xl",
+        "relative isolate w-full overflow-hidden rounded-[1.15rem] text-white md:rounded-2xl",
+        toneStyle.shadow,
         compact
           ? hasStats
             ? "py-4 md:py-5"
@@ -49,7 +71,7 @@ export function BalanceHero({
           : "aspect-[1.68/1]",
         className
       )}
-      style={{ backgroundImage: BALANCE_CARD_GRADIENT }}
+      style={{ backgroundImage: toneStyle.gradient }}
     >
       <div className="pointer-events-none absolute inset-[-18%_-8%_-22%_-8%]" aria-hidden>
         <Image

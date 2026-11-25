@@ -9,6 +9,7 @@ import { SuccessScreen } from "@/components/ui/success-screen";
 import { CompactPanel } from "@/components/layout/page-container";
 import { CardAssignPanel } from "@/components/cards/card-assign-panel";
 import { ConnectParentForm } from "@/components/students/connect-parent-form";
+import { useRefreshPendingDeposits } from "@/hooks/use-pending-deposits";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { acknowledgePendingDeposits } from "@/lib/ledger/service";
 import { formatStudentMeta } from "@/lib/student-meta";
@@ -39,6 +40,8 @@ export default function SecretaryStudentDetailPage() {
     setNote("");
     setError(null);
   }
+
+  const refreshBadge = useRefreshPendingDeposits();
 
   const refresh = useCallback(async () => {
     if (!studentId) return;
@@ -112,9 +115,10 @@ export default function SecretaryStudentDetailPage() {
         }
       } finally {
         acknowledgingRef.current = false;
+        void refreshBadge();
       }
     }
-  }, [studentId]);
+  }, [studentId, refreshBadge]);
 
   useEffect(() => {
     void refresh();

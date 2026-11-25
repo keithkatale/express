@@ -2,6 +2,7 @@
 
 import { BottomNav } from "./bottom-nav";
 import { DesktopSidebar } from "./desktop-sidebar";
+import { MobileTopMenu } from "./mobile-top-menu";
 import { PendingDepositsProvider } from "@/hooks/use-pending-deposits";
 import type { UserRole } from "@/types/database";
 
@@ -19,9 +20,14 @@ export function AppShell({
       <div className="app-shell">
         <div className="app-shell-frame">
           <DesktopSidebar role={role} />
-          <main className="app-main safe-bottom">{children}</main>
+          <div className="flex min-w-0 flex-1 flex-col">
+            {isStaff && <MobileTopMenu />}
+            <main className={isStaff ? "app-main app-main--top-menu" : "app-main safe-bottom"}>
+              {children}
+            </main>
+          </div>
         </div>
-        <BottomNav role={role} />
+        {!isStaff && <BottomNav role={role} />}
       </div>
     </PendingDepositsProvider>
   );

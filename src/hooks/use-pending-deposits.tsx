@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useRef,
   useState,
   type ReactNode,
@@ -20,8 +21,15 @@ export type PendingDeposits = {
 const empty: PendingDeposits = { total: 0, byStudentId: {} };
 
 const PendingDepositsContext = createContext<PendingDeposits>(empty);
+const RefreshPendingContext = createContext<() => Promise<void>>(async () => {});
 
-function usePendingDepositsState(enabled: boolean): PendingDeposits {
+const POLL_INTERVAL_MS = 15_000;
+
+function usePendingDepositsState(enabled: boolean): {
+  pending: PendingDeposits;
+  refresh: () => Promise<void>;
+} {
+  const instanceId = useId().replace(/:/g, "");
   const [pending, setPending] = useState<PendingDeposits>(empty);
   const previousTotalRef = useRef<number | null>(null);
 
@@ -65,9 +73,18 @@ function usePendingDepositsState(enabled: boolean): PendingDeposits {
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
 
+    // Safety nets: realtime events can be dropped (tab asleep, reconnects), which would
+    // leave the badge stuck on a count that is already acknowledged.
+    const poll = window.setInterval(() => void refresh(), POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
-      .channel("pending_deposits")
+      .channel(`pending_deposits_${instanceId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ledger_entries" },
@@ -76,13 +93,16 @@ function usePendingDepositsState(enabled: boolean): PendingDeposits {
       .subscribe();
 
     return () => {
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       void supabase.removeChannel(channel);
     };
-  }, [enabled, refresh]);
+  }, [enabled, refresh, instanceId]);
 
-  return pending;
+  return { pending, refresh };
 }
 
 export function PendingDepositsProvider({
@@ -92,13 +112,20 @@ export function PendingDepositsProvider({
   enabled: boolean;
   children: ReactNode;
 }) {
-  const pending = usePendingDepositsState(enabled);
+  const { pending, refresh } = usePendingDepositsState(enabled);
 
   return (
-    <PendingDepositsContext.Provider value={pending}>{children}</PendingDepositsContext.Provider>
+    <RefreshPendingContext.Provider value={refresh}>
+      <PendingDepositsContext.Provider value={pending}>{children}</PendingDepositsContext.Provider>
+    </RefreshPendingContext.Provider>
   );
 }
 
 export function usePendingDeposits(): PendingDeposits {
   return useContext(PendingDepositsContext);
+}
+
+/** Call after marking deposits as received so the badge clears immediately. */
+export function useRefreshPendingDeposits(): () => Promise<void> {
+  return useContext(RefreshPendingContext);
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState, StatusBadge } from "@/components/ui/money-ui";
 import { PageStack } from "@/components/layout/page-container";
+import { useRefreshPendingDeposits } from "@/hooks/use-pending-deposits";
 import { useLedgerRealtime } from "@/hooks/use-ledger-realtime";
 import { acknowledgePendingDeposits } from "@/lib/ledger/service";
 import { formatUgx } from "@/lib/format-money";
@@ -19,6 +20,8 @@ export default function SecretaryPendingPage() {
   const [acknowledgedCount, setAcknowledgedCount] = useState(0);
   const acknowledgingRef = useRef(false);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const rerunRef = useRef(false);
+  const refreshBadge = useRefreshPendingDeposits();
 
   const refresh = useCallback(async () => {
     const supabase = createSupabaseBrowserClient();
@@ -53,6 +56,10 @@ export default function SecretaryPendingPage() {
     });
 
     const toAck = pending.filter((entry) => !seenIdsRef.current.has(entry.id));
+    if (toAck.length > 0 && acknowledgingRef.current) {
+      // A deposit arrived mid-acknowledge; run again once the current pass finishes.
+      rerunRef.current = true;
+    }
     if (toAck.length > 0 && !acknowledgingRef.current) {
       acknowledgingRef.current = true;
       try {
@@ -76,11 +83,16 @@ export default function SecretaryPendingPage() {
         }
       } finally {
         acknowledgingRef.current = false;
+        void refreshBadge();
+        if (rerunRef.current) {
+          rerunRef.current = false;
+          void refresh();
+        }
       }
     }
 
     setLoading(false);
-  }, []);
+  }, [refreshBadge]);
 
   useEffect(() => {
     void refresh();

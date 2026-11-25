@@ -44,43 +44,43 @@ export function Numpad({ onAmount, disabled = false }: NumpadProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
           <button
             key={num}
+            type="button"
             onClick={() => handleNumber(num)}
             disabled={disabled}
-            className="btn-secondary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="numpad-key"
           >
             {num}
           </button>
         ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
         <button
+          type="button"
+          onClick={handleClear}
+          disabled={disabled}
+          aria-label="Clear"
+          className="numpad-key numpad-key--small"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
           onClick={() => handleNumber("0")}
           disabled={disabled}
-          className="btn-secondary py-3 text-lg font-medium col-span-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="numpad-key"
         >
           0
         </button>
         <button
+          type="button"
           onClick={handleBackspace}
           disabled={disabled}
-          className="btn-secondary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Backspace"
+          className="numpad-key"
         >
           ←
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2">
-        <button
-          onClick={handleClear}
-          disabled={disabled}
-          className="btn-secondary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Clear
         </button>
       </div>
 
